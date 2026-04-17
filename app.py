@@ -61,7 +61,10 @@ def verify_password(password: str, password_hash: str) -> bool:
 def init_users_file():
     """Создает файл пользователей, если его нет."""
     if not os.path.exists(USERS_FILE):
-        os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
+        # Создаем директорию только если есть путь
+        users_dir = os.path.dirname(USERS_FILE)
+        if users_dir:
+            os.makedirs(users_dir, exist_ok=True)
         # Создаем администратора по умолчанию
         default_password = secrets.token_urlsafe(16)
         users = {
