@@ -55,8 +55,13 @@ def run_stock_script(script_path: str, *, stdin_newline: bool = False) -> Tuple[
 
     cwd = os.path.dirname(script_path) or None
     cmd = [sys.executable, script_path]
-    if stdin_newline:
-        proc = subprocess.run(cmd, input="\n", text=True, capture_output=True, cwd=cwd)
-    else:
-        proc = subprocess.run(cmd, text=True, capture_output=True, cwd=cwd)
-    return proc.returncode, proc.stdout or "", proc.stderr or ""
+    # Добавляем таймаут 5 минут для выполнения скрипта
+    timeout = 300  # 5 минут
+    try:
+        if stdin_newline:
+            proc = subprocess.run(cmd, input="\n", text=True, capture_output=True, cwd=cwd, timeout=timeout)
+        else:
+            proc = subprocess.run(cmd, text=True, capture_output=True, cwd=cwd, timeout=timeout)
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+    except subprocess.TimeoutExpired:
+        return 1, "", f"Таймаут: скрипт выполнялся более {timeout} секунд"
