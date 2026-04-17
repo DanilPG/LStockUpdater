@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Дашборд - LStock Updater{% endblock %}
+
+{% block content %}
+<div class="header">
+    <div class="header-content">
+        <a href="{{ url_for('dashboard') }}" class="logo">📦 LStock</a>
+        <nav class="nav-links">
+            <a href="{{ url_for('dashboard') }}" class="active">Дашборд</a>
+            <a href="{{ url_for('settings') }}">Настройки</a>
+            <a href="{{ url_for('logout') }}">Выход</a>
+        </nav>
+    </div>
+</div>
+
+<div class="container" style="padding-bottom: 80px;">
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="total-updates">{{ stats.total_updates or 0 }}</div>
+            <div class="stat-label">Всего обновлений</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="success-rate">{{ stats.success_rate or 0 }}%</div>
+            <div class="stat-label">Успешных</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="today-updates">{{ summary.today_updates or 0 }}</div>
+            <div class="stat-label">Сегодня</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="active-stores">{{ stats.active_stores or 0 }}</div>
+            <div class="stat-label">Магазинов</div>
+        </div>
+    </div>
+
+    <!-- Вкладки маркетплейсов -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Управление остатками</h2>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" data-tab="ozon">🛒 Ozon</button>
+            <button class="tab" data-tab="wb">🟣 Wildberries</button>
+            <button class="tab" data-tab="yandex">🔵 Яндекс</button>
+        </div>
+        
+        <!-- Ozon -->
+        <div class="tab-content active" id="tab-ozon">
+            <div class="form-group">
+                <label class="form-label">Выберите магазины:</label>
+                <div class="checkbox-group" id="ozon-stores">
+                    {% for store in ozon_stores %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="{{ store }}" data-marketplace="ozon">
+                        <span>{{ store }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-success" onclick="updateStocks('ozon')">
+                    ✅ Обновить остатки
+                </button>
+                <button class="btn btn-warning" onclick="resetStocks('ozon')">
+                    🔄 Обнулить остатки
+                </button>
+            </div>
+        </div>
+        
+        <!-- Wildberries -->
+        <div class="tab-content" id="tab-wb">
+            <div class="form-group">
+                <label class="form-label">Выберите магазины:</label>
+                <div class="checkbox-group" id="wb-stores">
+                    {% for store in wb_stores %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="{{ store }}" data-marketplace="wb">
+                        <span>{{ store }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-success" onclick="updateStocks('wb')">
+                    ✅ Обновить остатки
+                </button>
+                <button class="btn btn-warning" onclick="resetStocks('wb')">
+                    🔄 Обнулить остатки
+                </button>
+            </div>
+        </div>
+        
+        <!-- Яндекс -->
+        <div class="tab-content" id="tab-yandex">
+            <div class="form-group">
+                <label class="form-label">Выберите магазины:</label>
+                <div class="checkbox-group" id="yandex-stores">
+                    {% for store in yandex_stores %}
+                    <label class="checkbox-item">
+                        <input type="checkbox" value="{{ store }}" data-marketplace="yandex">
+                        <span>{{ store }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-success" onclick="updateStocks('yandex')">
+                    ✅ Обновить остатки
+                </button>
+                <button class="btn btn-warning" onclick="resetStocks('yandex')">
+                    🔄 Обнулить остатки
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Вывод операций -->
+    <div class="card" id="output-card" style="display: none;">
+        <div class="card-header">
+            <h2 class="card-title">Результат операции</h2>
+            <button class="btn" style="padding: 5px 10px; font-size: 0.8rem;" onclick="clearOutput()">
+                ✕
+            </button>
+        </div>
+        <div class="output" id="output"></div>
+    </div>
+    
+    <!-- История операций -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">История операций</h2>
+            <button class="btn btn-danger" style="padding: 8px 16px; font-size: 0.9rem;" onclick="clearHistory()">
+                🗑️ Очистить
+            </button>
+        </div>
+        <div id="history-list">
+            <p style="text-align: center; color: var(--gray);">Загрузка истории...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Мобильная навигация -->
+<div class="mobile-nav">
+    <a href="{{ url_for('dashboard') }}" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">📊</span>
+        <span class="mobile-nav-label">Дашборд</span>
+    </a>
+    <a href="{{ url_for('settings') }}" class="mobile-nav-item">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span class="mobile-nav-label">Настройки</span>
+    </a>
+    <a href="{{ url_for('logout') }}" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🚪</span>
+        <span class="mobile-nav-label">Выход</span>
+    </a>
+</div>
+
+<style>
+    .header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+    
+    .container {
+        padding-top: 20px;
+    }
+    
+    @media (max-width: 768px) {
+        .header {
+            padding: 10px 15px;
+        }
+        
+        .logo {
+            font-size: 1.2rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        
+        .stat-card {
+            padding: 15px;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+        
+        .card {
+            margin-bottom: 15px;
+        }
+    }
+</style>
+
+<script>
+    // Переключение вкладок
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            this.classList.add('active');
+            const tabId = 'tab-' + this.dataset.tab;
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+    
+    // Выбор всех магазинов
+    function selectAll(marketplace) {
+        document.querySelectorAll(`input[data-marketplace="${marketplace}"]`).forEach(cb => {
+            cb.checked = true;
+        });
+    }
+    
+    // Снять выбор со всех магазинов
+    function deselectAll(marketplace) {
+        document.querySelectorAll(`input[data-marketplace="${marketplace}"]`).forEach(cb => {
+            cb.checked = false;
+        });
+    }
+    
+    // Получить выбранные магазины
+    function getSelectedStores(marketplace) {
+        return Array.from(document.querySelectorAll(`input[data-marketplace="${marketplace}"]:checked`))
+            .map(cb => cb.value);
+    }
+    
+    // Обновить остатки
+    async function updateStocks(marketplace) {
+        const stores = getSelectedStores(marketplace);
+        
+        if (stores.length === 0) {
+            showAlert('Выберите хотя бы один магазин', 'warning');
+            return;
+        }
+        
+        showOutput();
+        appendOutput(`🔄 Начинаем обновление ${marketplace}...`);
+        
+        try {
+            const response = await apiRequest('/api/update', {
+                method: 'POST',
+                body: JSON.stringify({ marketplace, stores })
+            });
+            
+            if (response.success) {
+                appendOutput(response.result, 'success');
+                showAlert('Обновление завершено успешно', 'success');
+                loadHistory();
+                updateStats();
+            } else {
+                appendOutput(response.message, 'error');
+                showAlert('Ошибка при обновлении', 'error');
+            }
+        } catch (error) {
+            appendOutput(`Ошибка: ${error.message}`, 'error');
+            showAlert('Ошибка соединения', 'error');
+        }
+    }
+    
+    // Обнулить остатки
+    async function resetStocks(marketplace) {
+        const stores = getSelectedStores(marketplace);
+        
+        if (stores.length === 0) {
+            showAlert('Выберите хотя бы один магазин', 'warning');
+            return;
+        }
+        
+        if (!confirm(`Вы уверены, что хотите обнулить остатки для выбранных магазинов?`)) {
+            return;
+        }
+        
+        showOutput();
+        appendOutput(`🔄 Начинаем обнуление ${marketplace}...`);
+        
+        try {
+            const response = await apiRequest('/api/reset', {
+                method: 'POST',
+                body: JSON.stringify({ marketplace, stores })
+            });
+            
+            if (response.success) {
+                appendOutput(response.result, 'success');
+                showAlert('Обнуление завершено успешно', 'success');
+                loadHistory();
+            } else {
+                appendOutput(response.message, 'error');
+                showAlert('Ошибка при обнулении', 'error');
+            }
+        } catch (error) {
+            appendOutput(`Ошибка: ${error.message}`, 'error');
+            showAlert('Ошибка соединения', 'error');
+        }
+    }
+    
+    // Показать вывод
+    function showOutput() {
+        document.getElementById('output-card').style.display = 'block';
+        document.getElementById('output').innerHTML = '';
+    }
+    
+    // Добавить строку в вывод
+    function appendOutput(text, type = '') {
+        const output = document.getElementById('output');
+        const line = document.createElement('div');
+        line.className = 'output-line ' + type;
+        line.textContent = text;
+        output.appendChild(line);
+        output.scrollTop = output.scrollHeight;
+    }
+    
+    // Очистить вывод
+    function clearOutput() {
+        document.getElementById('output-card').style.display = 'none';
+        document.getElementById('output').innerHTML = '';
+    }
+    
+    // Загрузить историю
+    async function loadHistory() {
+        try {
+            const response = await apiRequest('/api/history?limit=20');
+            const historyList = document.getElementById('history-list');
+            
+            if (response.history && response.history.length > 0) {
+                historyList.innerHTML = response.history.map(item => `
+                    <div style="padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 500;">${item.store || item.marketplace}</span>
+                            <span style="font-size: 0.8rem; color: var(--gray);">${item.timestamp}</span>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 0.9rem; color: ${item.success ? 'var(--success)' : 'var(--danger)'};">
+                            ${item.success ? '✅' : '❌'} ${item.action || 'Операция'}
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                historyList.innerHTML = '<p style="text-align: center; color: var(--gray);">История пуста</p>';
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки истории:', error);
+        }
+    }
+    
+    // Очистить историю
+    async function clearHistory() {
+        if (!confirm('Вы уверены, что хотите очистить всю историю?')) {
+            return;
+        }
+        
+        try {
+            const response = await apiRequest('/api/clear-history', {
+                method: 'POST',
+                body: JSON.stringify({})
+            });
+            
+            if (response.success) {
+                showAlert('История очищена', 'success');
+                loadHistory();
+            } else {
+                showAlert('Ошибка при очистке истории', 'error');
+            }
+        } catch (error) {
+            showAlert('Ошибка соединения', 'error');
+        }
+    }
+    
+    // Обновить статистику
+    async function updateStats() {
+        try {
+            const response = await apiRequest('/api/stats');
+            
+            if (response.stats) {
+                document.getElementById('total-updates').textContent = response.stats.total_updates || 0;
+                document.getElementById('success-rate').textContent = (response.stats.success_rate || 0) + '%';
+                document.getElementById('active-stores').textContent = response.stats.active_stores || 0;
+            }
+            
+            if (response.summary) {
+                document.getElementById('today-updates').textContent = response.summary.today_updates || 0;
+            }
+        } catch (error) {
+            console.error('Ошибка обновления статистики:', error);
+        }
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        loadHistory();
+        
+        // Автообновление статистики каждые 30 секунд
+        setInterval(updateStats, 30000);
+    });
+</script>
+{% endblock %}

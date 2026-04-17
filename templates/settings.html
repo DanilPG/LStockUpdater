@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Настройки - LStock Updater{% endblock %}
+
+{% block content %}
+<div class="header">
+    <div class="header-content">
+        <a href="{{ url_for('dashboard') }}" class="logo">📦 LStock</a>
+        <nav class="nav-links">
+            <a href="{{ url_for('dashboard') }}">Дашборд</a>
+            <a href="{{ url_for('settings') }}" class="active">Настройки</a>
+            <a href="{{ url_for('logout') }}">Выход</a>
+        </nav>
+    </div>
+</div>
+
+<div class="container" style="padding-bottom: 80px;">
+    <h1 style="margin-bottom: 30px;">⚙️ Настройки</h1>
+    
+    <!-- Смена пароля -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🔐 Смена пароля</h2>
+        </div>
+        
+        <form id="password-form">
+            <div class="form-group">
+                <label class="form-label" for="current-password">Текущий пароль</label>
+                <input 
+                    type="password" 
+                    class="form-control" 
+                    id="current-password" 
+                    placeholder="Введите текущий пароль"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="new-password">Новый пароль</label>
+                <input 
+                    type="password" 
+                    class="form-control" 
+                    id="new-password" 
+                    placeholder="Минимум 8 символов"
+                    minlength="8"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="confirm-password">Подтвердите новый пароль</label>
+                <input 
+                    type="password" 
+                    class="form-control" 
+                    id="confirm-password" 
+                    placeholder="Повторите новый пароль"
+                    minlength="8"
+                    required
+                >
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                🔒 Изменить пароль
+            </button>
+        </form>
+    </div>
+    
+    <!-- Информация о сессии -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📱 Информация о сессии</h2>
+        </div>
+        
+        <div id="session-info">
+            <p style="color: var(--gray);">Загрузка...</p>
+        </div>
+    </div>
+    
+   
+    <!-- Информация о приложении -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">ℹ️ О приложении</h2>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div>
+                <span style="color: var(--gray);">Версия:</span>
+                <span style="margin-left: 10px;">1.0.0</span>
+            </div>
+            <div>
+                <span style="color: var(--gray);">Пользователь:</span>
+                <span style="margin-left: 10px;" id="current-user">{{ session.get('user_id', 'Неизвестно') }}</span>
+            </div>
+            <div>
+                <span style="color: var(--gray);">Роль:</span>
+                <span style="margin-left: 10px;">Администратор</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Мобильная навигация -->
+<div class="mobile-nav">
+    <a href="{{ url_for('dashboard') }}" class="mobile-nav-item">
+        <span class="mobile-nav-icon">📊</span>
+        <span class="mobile-nav-label">Дашборд</span>
+    </a>
+    <a href="{{ url_for('settings') }}" class="mobile-nav-item active">
+        <span class="mobile-nav-icon">⚙️</span>
+        <span class="mobile-nav-label">Настройки</span>
+    </a>
+    <a href="{{ url_for('logout') }}" class="mobile-nav-item">
+        <span class="mobile-nav-icon">🚪</span>
+        <span class="mobile-nav-label">Выход</span>
+    </a>
+</div>
+
+<script>
+    // Загрузка информации о сессии
+    async function loadSessionInfo() {
+        try {
+            const response = await apiRequest('/api/session-info');
+            const sessionInfo = document.getElementById('session-info');
+            
+            const loginTime = new Date(response.login_time);
+            const lastActivity = new Date(response.last_activity);
+            const now = new Date();
+            
+            const sessionDuration = Math.floor((now - loginTime) / 1000 / 60); // минуты
+            const inactiveTime = Math.floor((now - lastActivity) / 1000 / 60); // минуты
+            const remainingTime = Math.floor((response.timeout - (now - lastActivity) / 1000) / 60); // минуты
+            
+            sessionInfo.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div>
+                        <span style="color: var(--gray);">Пользователь:</span>
+                        <span style="margin-left: 10px;">${response.user_id}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--gray);">Время входа:</span>
+                        <span style="margin-left: 10px;">${loginTime.toLocaleString('ru-RU')}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--gray);">Длительность сессии:</span>
+                        <span style="margin-left: 10px;">${sessionDuration} мин</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--gray);">Последняя активность:</span>
+                        <span style="margin-left: 10px;">${inactiveTime} мин назад</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--gray);">Осталось до таймаута:</span>
+                        <span style="margin-left: 10px; color: ${remainingTime < 5 ? 'var(--danger)' : 'var(--success)'};">${remainingTime} мин</span>
+                    </div>
+                </div>
+            `;
+        } catch (error) {
+            console.error('Ошибка загрузки информации о сессии:', error);
+            document.getElementById('session-info').innerHTML = '<p style="color: var(--danger);">Ошибка загрузки</p>';
+        }
+    }
+    
+    // Смена пароля
+    document.getElementById('password-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const currentPassword = document.getElementById('current-password').value;
+        const newPassword = document.getElementById('new-password').value;
+        const confirmPassword = document.getElementById('confirm-password').value;
+        
+        if (newPassword !== confirmPassword) {
+            showAlert('Пароли не совпадают', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            showAlert('Пароль должен быть не менее 8 символов', 'error');
+            return;
+        }
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading"></span> Изменение...';
+        
+        try {
+            const response = await apiRequest('/api/change-password', {
+                method: 'POST',
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+            
+            if (response.success) {
+                showAlert('Пароль успешно изменен', 'success');
+                this.reset();
+            } else {
+                showAlert(response.message, 'error');
+            }
+        } catch (error) {
+            showAlert('Ошибка соединения', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '🔒 Изменить пароль';
+        }
+    });
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSessionInfo();
+        
+        // Обновление информации о сессии каждые 30 секунд
+        setInterval(loadSessionInfo, 30000);
+    });
+</script>
+{% endblock %}
