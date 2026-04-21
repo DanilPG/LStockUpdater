@@ -62,16 +62,23 @@ def main():
                 resp = None
                 for attempt in range(1, max_attempts + 1):
                     try:
-                        resp = requests.get(url, headers=MS_HEADERS, params=params, timeout=60)
+                        # Увеличиваем таймаут: 30 сек на соединение + 90 сек на чтение
+                        # На серверах соединение может быть медленнее
+                        resp = requests.get(url, headers=MS_HEADERS, params=params, timeout=(30, 90))
                         if resp.status_code == 200:
                             break
                         else:
                             err = f"Ошибка МойСклад: {resp.status_code} - {resp.text}"
                             if attempt == max_attempts:
                                 raise Exception(err)
+                    except requests.exceptions.Timeout as e:
+                        if attempt == max_attempts:
+                            raise Exception(f"Таймаут соединения с МойСклад после {max_attempts} попыток: {e}")
+                        print(f"[WARNING] Попытка {attempt}/{max_attempts}: таймаут, повторяем...")
                     except requests.exceptions.RequestException as e:
                         if attempt == max_attempts:
                             raise Exception(f"Ошибка соединения с МойСклад после {max_attempts} попыток: {e}")
+                        print(f"[WARNING] Попытка {attempt}/{max_attempts}: {e}, повторяем...")
                     import time as _t
                     _t.sleep(2 * attempt)
 

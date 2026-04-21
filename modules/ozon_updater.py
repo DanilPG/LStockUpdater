@@ -41,9 +41,17 @@ def update_stocks(selected_stores: Optional[List[str]] = None) -> str:
 	for store in stores_to_update:
 		logger.info("Обновление остатков Ozon (скрипт): %s", store)
 		path = available[store]
+		logger.info("Запуск скрипта: %s", path)
 		rc, out, err = run_stock_script(path, stdin_newline=True)
 		stdout = (out or "").strip()
 		stderr = (err or "").strip()
+		
+		logger.info("Скрипт %s завершен с кодом: %s", store, rc)
+		if stdout:
+			logger.info("STDOUT (%s): %s", store, stdout[:500])  # Первые 500 символов
+		if stderr:
+			logger.error("STDERR (%s): %s", store, stderr[:500])  # Первые 500 символов
+		
 		if rc != 0:
 			logger.error("Скрипт %s завершился с ошибкой: %s", store, stderr)
 			results.append(f"❌ {store}: ошибка. См. ниже.\n{stderr}")
