@@ -64,9 +64,12 @@ def add_action(
     save_history(history)
 
 
-def get_history() -> List[Dict[str, Any]]:
-    """Возвращает всю историю"""
-    return load_history()
+def get_history(limit: int = None) -> List[Dict[str, Any]]:
+    """Возвращает историю, опционально ограниченную количеством записей"""
+    history = load_history()
+    if limit is not None and limit > 0:
+        return history[-limit:]
+    return history
 
 
 def clear_history() -> None:
