@@ -37,9 +37,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Файл для хранения пользователей
+# Файл для хранения пользователей (резервный вариант)
 USERS_FILE = 'users.json'
 SESSION_TIMEOUT = 3600  # 1 час в секундах
+
+# Пароль администратора из переменной окружения (приоритет)
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', None)
 
 # Функции хеширования паролей (совместимые с Python 3.9+)
 def hash_password(password: str) -> str:
@@ -80,6 +83,21 @@ def init_users_file():
         logger.warning("Срочно измените пароль после первого входа!")
         return default_password
     return None
+
+def get_admin_password_hash():
+    """Возвращает хеш пароля администратора из переменной окружения или файла."""
+    if ADMIN_PASSWORD:
+        return hash_password(ADMIN_PASSWORD)
+    
+    # Резервный вариант: из файла
+    users = load_users()
+    if 'admin' in users:
+        return users['admin']['password_hash']
+    
+    # Если нет ни того ни другого - создаем файл
+    init_users_file()
+    users = load_users()
+    return users['admin']['password_hash']
 
 def load_users() -> Dict:
     """Загружает пользователей из файла."""
@@ -150,6 +168,23 @@ def login():
             flash('Введите имя пользователя и пароль.', 'error')
             return render_template('login.html')
         
+        if username == 'admin':
+            admin_hash = get_admin_password_hash()
+            if verify_password(password, admin_hash):
+                # Обновляем время последнего входа
+                users = load_users()
+                if 'admin' in users:
+                    users['admin']['last_login'] = datetime.now().isoformat()
+                    save_users(users)
+                session['user_id'] = username
+                session['role'] = 'admin'
+                session['last_activity'] = datetime.now().isoformat()
+                session['login_time'] = datetime.now().isoformat()
+                logger.info(f"Пользователь {username} вошел в систему")
+                flash('Добро пожаловать!', 'success')
+                return redirect(url_for('dashboard'))
+        
+        # Резервный вариант для других пользователей из файла
         users = load_users()
         if username in users and verify_password(password, users[username]['password_hash']):
             session['user_id'] = username
