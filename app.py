@@ -256,22 +256,30 @@ def api_update():
     if not stores:
         return jsonify({'success': False, 'message': 'Не выбраны магазины'}), 400
     
+    logger.info(f"Начинаем обновление {marketplace} для магазинов: {stores}")
+    
     try:
         result = ''
         if marketplace == 'ozon':
+            logger.info("Запуск ozon_update...")
             result = ozon_update(stores)
+            logger.info(f"ozon_update завершен, результат: {len(result)} символов")
         elif marketplace == 'wb':
+            logger.info("Запуск wb_update...")
             result = wb_update(stores)
+            logger.info(f"wb_update завершен, результат: {len(result)} символов")
         elif marketplace == 'yandex':
+            logger.info("Запуск yandex_update...")
             result = yandex_update(stores)
+            logger.info(f"yandex_update завершен, результат: {len(result)} символов")
         else:
             return jsonify({'success': False, 'message': 'Неизвестная платформа'}), 400
         
-        logger.info(f"Обновление {marketplace} для магазинов: {stores}")
+        logger.info(f"Обновление {marketplace} успешно завершено")
         return jsonify({'success': True, 'result': result})
     except Exception as e:
-        logger.error(f"Ошибка при обновлении: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
+        logger.error(f"Ошибка при обновлении {marketplace}: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'}), 500
 
 @app.route('/api/reset', methods=['POST'])
 @login_required
