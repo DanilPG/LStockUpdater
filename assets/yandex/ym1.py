@@ -77,7 +77,8 @@ def get_ms_stock():
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                resp = requests.get(url, headers=headers, params=params, timeout=60)
+                # Увеличиваем таймаут: 30 сек на соединение + 90 сек на чтение
+                resp = requests.get(url, headers=headers, params=params, timeout=(30, 90))
                 if resp.status_code != 200:
                     if attempt < max_retries - 1:
                         log(f"[WARNING] Ошибка МойСклад (попытка {attempt + 1}/{max_retries}): {resp.status_code}")
@@ -87,6 +88,14 @@ def get_ms_stock():
                     else:
                         raise Exception(f"Ошибка МойСклад: {resp.status_code} - {resp.text}")
                 break  # Успешный запрос
+            except requests.exceptions.Timeout as e:
+                if attempt < max_retries - 1:
+                    log(f"[WARNING] Таймаут МойСклад (попытка {attempt + 1}/{max_retries})")
+                    import time
+                    time.sleep(2)
+                    continue
+                else:
+                    raise Exception(f"Таймаут соединения с МойСклад после {max_retries} попыток: {e}")
             except requests.exceptions.RequestException as e:
                 if attempt < max_retries - 1:
                     log(f"[WARNING] Ошибка соединения с МойСклад (попытка {attempt + 1}/{max_retries}): {e}")

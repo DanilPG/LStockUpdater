@@ -45,19 +45,19 @@ def get_all_ms_items():
         url = "https://api.moysklad.ru/api/remap/1.2/entity/assortment"
         params = {"limit": limit, "offset": offset}
         try:
-
-            resp = requests.get(url, headers=MS_HEADERS, params=params, timeout=60)
+            # Увеличиваем таймаут: 30 сек на соединение + 90 сек на чтение
+            resp = requests.get(url, headers=MS_HEADERS, params=params, timeout=(30, 90))
 
             if resp.status_code != 200:
-
                 raise Exception(f"Ошибка МойСклад: {resp.status_code} - {resp.text}")
 
-        except requests.exceptions.RequestException as e:
-
-            print(f"[ERROR] Ошибка соединения с МойСклад: {e}")
-
+        except requests.exceptions.Timeout as e:
+            print(f"[ERROR] Таймаут соединения с МойСклад: {e}")
             print(f"[INFO] Продолжаем с уже загруженными данными: {len(ms_items)} товаров")
-
+            break
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR] Ошибка соединения с МойСклад: {e}")
+            print(f"[INFO] Продолжаем с уже загруженными данными: {len(ms_items)} товаров")
             break
 
         rows = resp.json().get("rows", [])
